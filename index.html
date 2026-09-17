@@ -1,10 +1,16 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>NYC Engineering Map</title><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/><link rel="stylesheet" href="styles.css"/></head><body>
-<header class="app-header"><div><h1>NYC Engineering Map</h1><p>Legal grade & zoning lookup tool</p></div><div class="status-pill" id="dataStatus">NYC MapPLUTO connected • legal grades pending</div></header>
+<header class="app-header"><div><h1>NYC Engineering Map</h1><p>Legal grade, zoning & property lookup tool</p></div><div class="status-pill" id="dataStatus">NYC DCP data connected • legal grades pending</div></header>
 <main class="layout"><aside class="sidebar">
-<section class="panel"><h2>Search</h2><form id="searchForm"><input id="searchInput" type="text" placeholder="NYC address or intersection" autocomplete="off"/><button type="submit">Find</button></form><p class="hint">Search an address, then click the tax lot for zoning and property information. Tax lots load at zoom 15 and closer.</p></section>
-<section class="panel"><h2>Layers</h2><label><input type="checkbox" id="toggleLots" checked/> Tax lots + zoning (MapPLUTO)</label><label><input type="checkbox" id="toggleGrades" disabled/> Legal grades — source pending</label></section>
-<section class="panel"><h2>Selected property</h2><div id="selectedInfo" class="empty-state">Search an address or click a tax lot.</div></section>
-<section class="panel warning"><h2>Engineering note</h2><p>Zoning shown is NYC DCP MapPLUTO information. Check current official zoning maps/resolution for project determinations. No substitute legal-grade elevations are displayed.</p></section>
-</aside><section class="map-wrap"><div id="map"></div><div class="legend"><div><span class="dot official"></span> NYC tax lot / zoning information</div><div><span class="dot calc"></span> Legal grades not yet loaded</div></div></section></main>
+<section class="panel"><h2>Search</h2><form id="searchForm"><input id="searchInput" type="text" placeholder="NYC address or intersection" autocomplete="off"/><button type="submit">Find</button></form><p class="hint">Search an address, then click mapped features for official NYC DCP attributes.</p></section>
+<section class="panel"><h2>Layers</h2>
+<label><input type="checkbox" id="toggleZoning" checked/> Zoning districts</label>
+<label><input type="checkbox" id="toggleOverlays"/> Commercial overlays</label>
+<label><input type="checkbox" id="toggleCommunity"/> Community districts</label>
+<label><input type="checkbox" id="toggleLots" checked/> Tax lots / MapPLUTO (zoom 15+)</label>
+<label><input type="checkbox" id="toggleGrades" disabled/> Legal grades — source pending</label>
+</section>
+<section class="panel"><h2>Selected feature</h2><div id="selectedInfo" class="empty-state">Search an address or click a mapped feature.</div></section>
+<section class="panel warning"><h2>Engineering note</h2><p>Zoning and parcel information shown is NYC DCP GIS data. Verify zoning determinations against current official zoning maps and the Zoning Resolution. No substitute or interpolated legal-grade elevations are displayed.</p></section>
+</aside><section class="map-wrap"><div id="map"></div><div class="legend"><div><span class="dot official"></span> NYC DCP mapped information</div><div><span class="dot calc"></span> Legal grades not yet loaded</div></div></section></main>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><script src="app.js"></script></body></html>
