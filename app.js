@@ -1,104 +1,24 @@
-const map = L.map('map', { zoomControl: true }).setView([40.7128, -74.0060], 11);
-
-// Basemap is independent of every NYC data layer so the map always remains usable.
-const street = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  maxZoom: 20,
-  attribution: '&copy; OpenStreetMap contributors'
-}).addTo(map);
-const imagery = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-  maxZoom: 20,
-  attribution: 'Esri, Maxar, Earthstar Geographics'
-});
-L.control.layers({ Street: street, Aerial: imagery }, {}, { position: 'topright' }).addTo(map);
-L.control.scale({ imperial: true, metric: false }).addTo(map);
-
-const $ = id => document.getElementById(id);
-let searchMarker;
-let lotGeoJson = L.geoJSON(null, {
-  style: feature => lotStyle(feature.properties || {}),
-  onEachFeature: (feature, layer) => {
-    layer.on('click', () => showLot(feature.properties || {}));
-    layer.bindPopup(() => lotPopup(feature.properties || {}));
-  }
-}).addTo(map);
-
-function esc(v='') { return String(v).replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
-function val(p, ...keys) { for (const k of keys) if (p[k] !== undefined && p[k] !== null && String(p[k]).trim() !== '') return p[k]; return ''; }
-function list(p, keys) { return keys.map(k => val(p,k)).filter(Boolean).join(', '); }
-function showSelected(title, rows) { $('selectedInfo').innerHTML = `<div class="result-title">${esc(title)}</div>` + rows.filter(Boolean).map(r => `<div class="result-row">${r}</div>`).join(''); }
-function lotStyle(p) {
-  const z = String(val(p,'ZoneDist1'));
-  let fill = '#3388cc';
-  if (z.startsWith('R')) fill = '#d6a84b';
-  else if (z.startsWith('C')) fill = '#d86b6b';
-  else if (z.startsWith('M')) fill = '#8b75b8';
-  return { color:'#1468a8', weight:1, fillColor:fill, fillOpacity:.18 };
-}
-function lotPopup(p) {
-  return `<strong>${esc(val(p,'Address') || 'NYC Tax Lot')}</strong><br>BBL: ${esc(val(p,'BBL'))}<br><strong>Zoning: ${esc(list(p,['ZoneDist1','ZoneDist2','ZoneDist3','ZoneDist4']) || 'not populated')}</strong><br><small>NYC DCP MapPLUTO</small>`;
-}
-function showLot(p) {
-  const z=list(p,['ZoneDist1','ZoneDist2','ZoneDist3','ZoneDist4']);
-  const o=list(p,['Overlay1','Overlay2']);
-  const s=list(p,['SPDist1','SPDist2','SPDist3']);
-  showSelected(val(p,'Address') || 'NYC Tax Lot', [
-    `BBL: <strong>${esc(val(p,'BBL'))}</strong>`,
-    `Block: ${esc(val(p,'Block'))} &nbsp; Lot: ${esc(val(p,'Lot'))}`,
-    z ? `<strong>Zoning district${z.includes(',')?'s':''}: ${esc(z)}</strong>` : 'Zoning district: not populated',
-    o ? `Commercial overlay: <strong>${esc(o)}</strong>` : '',
-    s ? `Special district: <strong>${esc(s)}</strong>` : '',
-    val(p,'LtdHeight') ? `Limited height district: ${esc(val(p,'LtdHeight'))}` : '',
-    val(p,'SplitZone') ? `Split zoning: ${esc(val(p,'SplitZone'))}` : '',
-    val(p,'LotArea') ? `Lot area: ${Number(val(p,'LotArea')).toLocaleString()} sf` : '',
-    'Source: <strong>NYC DCP MapPLUTO</strong>'
-  ]);
-}
-
-const MAPPLUTO_QUERY = 'https://services5.arcgis.com/GfwWNkhOj9bNBqoJ/arcgis/rest/services/MAPPLUTO/FeatureServer/0/query';
-let loadTimer;
-async function loadLots() {
-  if (!$('toggleLots').checked || map.getZoom() < 15) { lotGeoJson.clearLayers(); return; }
-  const b=map.getBounds();
-  const params=new URLSearchParams({
-    f:'geojson', where:'1=1',
-    geometry:`${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`,
-    geometryType:'esriGeometryEnvelope', inSR:'4326', spatialRel:'esriSpatialRelIntersects', outSR:'4326',
-    outFields:'BBL,Block,Lot,Address,ZoneDist1,ZoneDist2,ZoneDist3,ZoneDist4,Overlay1,Overlay2,SPDist1,SPDist2,SPDist3,LtdHeight,SplitZone,LotArea,LandUse',
-    returnGeometry:'true', resultRecordCount:'2000'
-  });
-  try {
-    const r=await fetch(`${MAPPLUTO_QUERY}?${params}`);
-    if(!r.ok) throw new Error(`MapPLUTO ${r.status}`);
-    const data=await r.json();
-    if(data.error) throw new Error(data.error.message || 'MapPLUTO query failed');
-    lotGeoJson.clearLayers(); lotGeoJson.addData(data);
-    $('dataStatus').textContent='NYC MapPLUTO connected • legal grades pending';
-  } catch(err) {
-    console.error(err);
-    $('dataStatus').textContent='Basemap online • NYC parcel layer unavailable';
-  }
-}
-function queueLots(){ clearTimeout(loadTimer); loadTimer=setTimeout(loadLots,250); }
-map.on('moveend zoomend', queueLots);
-
-async function geosearch(q) {
-  const r=await fetch(`https://geosearch.planninglabs.nyc/v2/search?text=${encodeURIComponent(q)}`);
-  if(!r.ok) throw new Error('NYC address search is unavailable.');
-  return (await r.json()).features?.[0];
-}
-$('searchForm').addEventListener('submit', async e => {
-  e.preventDefault(); const q=$('searchInput').value.trim(); if(!q)return;
-  try {
-    const f=await geosearch(q); if(!f)throw new Error('No NYC location found.');
-    const [lng,lat]=f.geometry.coordinates; map.setView([lat,lng],18);
-    if(searchMarker)map.removeLayer(searchMarker);
-    searchMarker=L.marker([lat,lng]).addTo(map);
-    const p=f.properties||{}, label=p.label||p.name||q;
-    searchMarker.bindPopup(`<strong>${esc(label)}</strong><br>Click the tax lot for zoning details.`).openPopup();
-    showSelected(label,[p.borough?`Borough: <strong>${esc(p.borough)}</strong>`:'',p.postalcode?`ZIP: ${esc(p.postalcode)}`:'',p.addendum?.pad?.bbl?`BBL: <strong>${esc(p.addendum.pad.bbl)}</strong>`:'','NYC tax lots appear at zoom 15 and closer.']);
-    queueLots();
-  } catch(err) { showSelected('Search error',[esc(err.message)]); }
-});
-$('toggleLots').addEventListener('change', e => { if(e.target.checked){lotGeoJson.addTo(map);queueLots();}else{map.removeLayer(lotGeoJson);} });
-
-queueLots();
+const map=L.map('map',{zoomControl:true}).setView([40.7128,-74.0060],11);
+const street=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:20,attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
+const imagery=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:20,attribution:'Esri, Maxar, Earthstar Geographics'});
+L.control.layers({Street:street,Aerial:imagery},{},{position:'topright'}).addTo(map);L.control.scale({imperial:true,metric:false}).addTo(map);
+const $=id=>document.getElementById(id);let searchMarker,loadTimer;
+const esc=(v='')=>String(v).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+const val=(p,...keys)=>{for(const k of keys)if(p[k]!==undefined&&p[k]!==null&&String(p[k]).trim()!=='')return p[k];return '';};
+const list=(p,keys)=>keys.map(k=>val(p,k)).filter(Boolean).join(', ');
+function showSelected(title,rows){$('selectedInfo').innerHTML=`<div class="result-title">${esc(title)}</div>`+rows.filter(Boolean).map(r=>`<div class="result-row">${r}</div>`).join('');}
+function zoningColor(z){z=String(z||'');if(z.startsWith('R'))return'#e5bd55';if(z.startsWith('C'))return'#e57676';if(z.startsWith('M'))return'#947ac2';return'#78a9d1';}
+const zoning=L.geoJSON(null,{style:f=>({color:'#555',weight:1,fillColor:zoningColor(val(f.properties||{},'ZONEDIST')),fillOpacity:.22}),onEachFeature:(f,l)=>l.on('click',()=>{const p=f.properties||{},z=val(p,'ZONEDIST');showSelected(`Zoning District ${z}`,[`District: <strong>${esc(z)}</strong>`,'Layer: NYC DCP Zoning Districts','Source: <strong>NYC Department of City Planning</strong>']);}).bindPopup(l=>`<strong>Zoning: ${esc(val(l.feature.properties||{},'ZONEDIST'))}</strong><br><small>NYC DCP</small>`)}).addTo(map);
+const overlays=L.geoJSON(null,{style:{color:'#008b72',weight:2,fillColor:'#45c9ad',fillOpacity:.18},onEachFeature:(f,l)=>l.on('click',()=>{const o=val(f.properties||{},'OVERLAY');showSelected(`Commercial Overlay ${o}`,[`Overlay: <strong>${esc(o)}</strong>`,'Source: <strong>NYC Department of City Planning</strong>']);}).bindPopup(l=>`<strong>Commercial Overlay: ${esc(val(l.feature.properties||{},'OVERLAY'))}</strong><br><small>NYC DCP</small>`)});
+const community=L.geoJSON(null,{style:{color:'#d35400',weight:2,fillOpacity:.02},onEachFeature:(f,l)=>l.on('click',()=>{const p=f.properties||{},cd=val(p,'BoroCD','boro_cd','BOROCD');showSelected('Community District',[`BoroCD: <strong>${esc(cd)}</strong>`,'Source: <strong>NYC Department of City Planning</strong>']);})});
+const lots=L.geoJSON(null,{style:f=>({color:'#1468a8',weight:1,fillColor:zoningColor(val(f.properties||{},'ZoneDist1')),fillOpacity:.12}),onEachFeature:(f,l)=>{l.on('click',()=>showLot(f.properties||{}));l.bindPopup(()=>lotPopup(f.properties||{}));}}).addTo(map);
+function lotPopup(p){return `<strong>${esc(val(p,'Address')||'NYC Tax Lot')}</strong><br>BBL: ${esc(val(p,'BBL'))}<br><strong>Zoning: ${esc(list(p,['ZoneDist1','ZoneDist2','ZoneDist3','ZoneDist4'])||'not populated')}</strong><br><small>NYC DCP MapPLUTO</small>`;}
+function showLot(p){const z=list(p,['ZoneDist1','ZoneDist2','ZoneDist3','ZoneDist4']),o=list(p,['Overlay1','Overlay2']),s=list(p,['SPDist1','SPDist2','SPDist3']);showSelected(val(p,'Address')||'NYC Tax Lot',[`BBL: <strong>${esc(val(p,'BBL'))}</strong>`,`Block: ${esc(val(p,'Block'))} &nbsp; Lot: ${esc(val(p,'Lot'))}`,z?`<strong>Zoning: ${esc(z)}</strong>`:'',o?`Commercial overlay: <strong>${esc(o)}</strong>`:'',s?`Special district: <strong>${esc(s)}</strong>`:'',val(p,'LtdHeight')?`Limited height: ${esc(val(p,'LtdHeight'))}`:'',val(p,'SplitZone')?`Split zoning: ${esc(val(p,'SplitZone'))}`:'',val(p,'LotArea')?`Lot area: ${Number(val(p,'LotArea')).toLocaleString()} sf`:'','Source: <strong>NYC DCP MapPLUTO</strong>']);}
+const SERVICES={zoning:'https://services5.arcgis.com/GfwWNkhOj9bNBqoJ/arcgis/rest/services/nyzd/FeatureServer/0/query',overlays:'https://services5.arcgis.com/GfwWNkhOj9bNBqoJ/arcgis/rest/services/nyco/FeatureServer/0/query',community:'https://services5.arcgis.com/GfwWNkhOj9bNBqoJ/arcgis/rest/services/NYC_Community_Districts/FeatureServer/0/query',lots:'https://services5.arcgis.com/GfwWNkhOj9bNBqoJ/arcgis/rest/services/MAPPLUTO/FeatureServer/0/query'};
+async function query(url,outFields,bounds){const b=bounds||map.getBounds(),p=new URLSearchParams({f:'geojson',where:'1=1',geometry:`${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`,geometryType:'esriGeometryEnvelope',inSR:'4326',spatialRel:'esriSpatialRelIntersects',outSR:'4326',outFields,returnGeometry:'true',resultRecordCount:'2000'}),r=await fetch(`${url}?${p}`);if(!r.ok)throw new Error(`HTTP ${r.status}`);const d=await r.json();if(d.error)throw new Error(d.error.message);return d;}
+async function loadLayers(){const jobs=[];if($('toggleZoning').checked)jobs.push(query(SERVICES.zoning,'ZONEDIST').then(d=>{zoning.clearLayers();zoning.addData(d);}));else zoning.clearLayers();if($('toggleOverlays').checked)jobs.push(query(SERVICES.overlays,'OVERLAY').then(d=>{overlays.clearLayers();overlays.addData(d);}));else overlays.clearLayers();if($('toggleCommunity').checked)jobs.push(query(SERVICES.community,'*').then(d=>{community.clearLayers();community.addData(d);}));else community.clearLayers();if($('toggleLots').checked&&map.getZoom()>=15)jobs.push(query(SERVICES.lots,'BBL,Block,Lot,Address,ZoneDist1,ZoneDist2,ZoneDist3,ZoneDist4,Overlay1,Overlay2,SPDist1,SPDist2,SPDist3,LtdHeight,SplitZone,LotArea,LandUse').then(d=>{lots.clearLayers();lots.addData(d);}));else lots.clearLayers();try{await Promise.all(jobs);$('dataStatus').textContent='NYC DCP data connected • legal grades pending';}catch(e){console.error(e);$('dataStatus').textContent='Basemap online • one or more NYC layers unavailable';}}
+function queue(){clearTimeout(loadTimer);loadTimer=setTimeout(loadLayers,300);}map.on('moveend zoomend',queue);
+async function geosearch(q){const r=await fetch(`https://geosearch.planninglabs.nyc/v2/search?text=${encodeURIComponent(q)}`);if(!r.ok)throw new Error('NYC address search is unavailable.');return(await r.json()).features?.[0];}
+$('searchForm').addEventListener('submit',async e=>{e.preventDefault();const q=$('searchInput').value.trim();if(!q)return;try{const f=await geosearch(q);if(!f)throw new Error('No NYC location found.');const[lng,lat]=f.geometry.coordinates;map.setView([lat,lng],18);if(searchMarker)map.removeLayer(searchMarker);searchMarker=L.marker([lat,lng]).addTo(map);const p=f.properties||{},label=p.label||p.name||q;searchMarker.bindPopup(`<strong>${esc(label)}</strong><br>Click mapped features for details.`).openPopup();showSelected(label,[p.borough?`Borough: <strong>${esc(p.borough)}</strong>`:'',p.postalcode?`ZIP: ${esc(p.postalcode)}`:'',p.addendum?.pad?.bbl?`BBL: <strong>${esc(p.addendum.pad.bbl)}</strong>`:'','Click the parcel or zoning layer for NYC DCP information.']);queue();}catch(e){showSelected('Search error',[esc(e.message)]);}});
+[['toggleZoning',zoning],['toggleOverlays',overlays],['toggleCommunity',community],['toggleLots',lots]].forEach(([id,layer])=>$(id).addEventListener('change',e=>{if(e.target.checked)layer.addTo(map);else map.removeLayer(layer);queue();}));
+loadLayers();
