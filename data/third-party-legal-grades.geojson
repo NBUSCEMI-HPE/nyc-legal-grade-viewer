@@ -1,0 +1,25 @@
+{
+  "type": "FeatureCollection",
+  "name": "Sourced third-party legal grades",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [-73.840576, 40.768208]},
+      "properties": {
+        "grade_ft": 13.5,
+        "previous_grade_ft": 9.1,
+        "address": "31-25 College Point Boulevard, Queens, NY",
+        "borough": "Queens",
+        "grade_reference": "Queens street legal grade; source describes the mapped legal grade for the abutting section of College Point Boulevard",
+        "datum": "Not stated in cited court decision",
+        "effective_year": 1978,
+        "source_type": "Published New York Court of Appeals decision describing filed City Map legal grade",
+        "source_title": "Soon Duck Kim v. City of New York, 90 N.Y.2d 1 (1997)",
+        "source_url": "https://www.law.cornell.edu/nyctap/090_0001.htm",
+        "location_basis": "Address identified in court record; map coordinate placed at documented property/address location, not asserted as the exact City Map grade-point XY",
+        "confidence": "Documented grade / approximate display location",
+        "notes": "Court record states the Board of Estimate raised the legal grade of this section of College Point Boulevard from 9.1 ft to 13.5 ft in June 1978 and a map reflecting the grade was filed with the Queens Borough President in October 1978."
+      }
+    }
+  ]
+}
