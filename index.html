@@ -4,59 +4,22 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>NYC Legal Grade Viewer</title>
-  <link rel="preconnect" href="https://unpkg.com" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <header class="app-header">
-    <div>
-      <h1>NYC Legal Grade Viewer</h1>
-      <p>Office engineering lookup tool</p>
-    </div>
-    <div class="status-pill" id="dataStatus">Legal-grade source pending</div>
-  </header>
-
+  <header class="app-header"><div><h1>NYC Legal Grade Viewer</h1><p>Office engineering lookup tool</p></div><div class="status-pill" id="dataStatus">NYC MapPLUTO connected • legal grades pending</div></header>
   <main class="layout">
     <aside class="sidebar">
-      <section class="panel">
-        <h2>Search</h2>
-        <form id="searchForm">
-          <input id="searchInput" type="text" placeholder="Address, intersection, BBL" autocomplete="off" />
-          <button type="submit">Find</button>
-        </form>
-        <p class="hint">Address search uses NYC GeoSearch. BBL search will be enabled once the production parcel endpoint is finalized.</p>
-      </section>
-
-      <section class="panel">
-        <h2>Layers</h2>
-        <label><input type="checkbox" id="toggleLots" checked /> Tax lots</label>
-        <label><input type="checkbox" id="toggleGrades" checked /> Legal grades</label>
-        <label><input type="checkbox" id="toggleBuildings" /> Buildings</label>
-        <label><input type="checkbox" id="toggleCurbs" /> Curbs</label>
-      </section>
-
-      <section class="panel">
-        <h2>Selected location</h2>
-        <div id="selectedInfo" class="empty-state">Search an address or click the map.</div>
-      </section>
-
-      <section class="panel warning">
-        <h2>Engineering note</h2>
-        <p>Official mapped legal grades and calculated/interpolated values must remain visually distinct. Do not use calculated values as official City Map grades.</p>
-      </section>
+      <section class="panel"><h2>Search</h2><form id="searchForm"><input id="searchInput" type="text" placeholder="NYC address or intersection" autocomplete="off" /><button type="submit">Find</button></form><p class="hint">Search uses NYC GeoSearch. Tax-lot geometry and attributes are live NYC Department of City Planning MapPLUTO data.</p></section>
+      <section class="panel"><h2>Layers</h2><label><input type="checkbox" id="toggleLots" checked /> NYC tax lots (MapPLUTO)</label><label><input type="checkbox" id="toggleGrades" disabled /> Legal grades — source pending</label></section>
+      <section class="panel"><h2>Selected location / lot</h2><div id="selectedInfo" class="empty-state">Search an address or click a tax lot.</div></section>
+      <section class="panel warning"><h2>Engineering note</h2><p>No substitute legal-grade elevations are displayed. The legal-grade layer will remain unavailable until a verified NYC City Map / DCP-DEP source is connected.</p></section>
     </aside>
-
-    <section class="map-wrap">
-      <div id="map"></div>
-      <div class="legend">
-        <div><span class="dot official"></span> Official mapped legal grade</div>
-        <div><span class="dot calc"></span> Calculated/interpolated grade</div>
-      </div>
-    </section>
+    <section class="map-wrap"><div id="map"></div><div class="legend"><div><span class="dot official"></span> NYC MapPLUTO tax lot</div><div><span class="dot calc"></span> Legal grades not yet loaded</div></div></section>
   </main>
-
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/esri-leaflet@3.0.15/dist/esri-leaflet.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
